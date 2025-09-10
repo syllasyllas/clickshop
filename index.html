@@ -36,14 +36,11 @@
             border-bottom: 2px solid #F97316; /* orange-500 */
             color: #1F2937; /* gray-800 */
         }
+        /* Styles pour la Lightbox (Galerie plein écran) --> */
         #lightbox { display: none; }
         #lightbox.active { display: flex; }
         #lightbox-thumbnails img { cursor: pointer; border: 2px solid transparent; }
         #lightbox-thumbnails img.active-thumb { border-color: #F97316; }
-        .category-filter-btn.active {
-            background-color: #F97316;
-            color: white;
-        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -58,6 +55,10 @@
             <div class="flex items-center space-x-4">
                 <a href="#articles" class="text-gray-600 hover:text-orange-500 transition-all">Nos Articles</a>
                 <a href="#contact" class="text-gray-600 hover:text-orange-500 transition-all">Contact</a>
+                <button id="cart-btn" class="relative text-gray-600 hover:text-orange-500 transition-all">
+                    <i class="fas fa-shopping-cart text-2xl"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
+                </button>
                 <button id="admin-btn" class="hidden-truly bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-orange-500 transition-all text-sm">
                     <i class="fas fa-lock mr-2"></i>Admin
                 </button>
@@ -156,6 +157,7 @@
     <!-- =========== MODALS & NOTIFICATIONS =========== -->
     <div id="admin-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"></div>
     <div id="order-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"></div>
+    <div id="cart-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"></div>
     <div id="delete-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <h3 class="text-lg font-bold mb-4" id="delete-confirm-title">Confirmer la suppression</h3>
@@ -212,6 +214,7 @@
         let allOrders = [];
         let allCoupons = [];
         let allCategories = [];
+        let cart = [];
         let itemToDelete = { id: null, type: null };
         let ordersListenerUnsubscribe = null;
         let couponsListenerUnsubscribe = null;
@@ -222,7 +225,10 @@
             productListContainer: document.getElementById('product-list'),
             adminModal: document.getElementById('admin-modal'),
             orderModal: document.getElementById('order-modal'),
+            cartModal: document.getElementById('cart-modal'),
             adminBtn: document.getElementById('admin-btn'),
+            cartBtn: document.getElementById('cart-btn'),
+            cartCount: document.getElementById('cart-count'),
             logoContainer: document.getElementById('logo-container'),
             deleteConfirmModal: document.getElementById('delete-confirm-modal'),
             deleteConfirmTitle: document.getElementById('delete-confirm-title'),
@@ -294,8 +300,8 @@
                         <p class="text-gray-600 mb-4 flex-grow text-sm">${product.description}</p>
                         <div class="mt-auto">
                             ${priceHTML}
-                            <button data-product-id="${product.id}" class="order-btn w-full text-center bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-500 transition-all flex items-center justify-center text-base">
-                                <i class="fas fa-shopping-cart mr-2"></i> Commander
+                            <button data-product-id="${product.id}" class="add-to-cart-btn w-full text-center bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-500 transition-all flex items-center justify-center text-base">
+                                <i class="fas fa-plus mr-2"></i> Ajouter au panier
                             </button>
                         </div>
                     </div>
@@ -310,22 +316,21 @@
                 return;
             }
 
-            const orderButton = e.target.closest('.order-btn');
-            if (orderButton) {
-                const productId = orderButton.dataset.productId;
-                const product = allProducts.find(p => p.id === productId);
-                if (product) showOrderForm(product);
+            const addToCartButton = e.target.closest('.add-to-cart-btn');
+            if (addToCartButton) {
+                const productId = addToCartButton.dataset.productId;
+                addToCart(productId);
             }
         });
         
         let activeCoupon = null;
-        async function applyCoupon(productPrice) {
+        async function applyCoupon(originalPrice) {
             const couponInput = document.getElementById('coupon-code');
             const code = couponInput.value.trim().toUpperCase();
             const statusEl = document.getElementById('coupon-status');
             const priceDisplay = document.getElementById('final-price-display');
             
-            priceDisplay.textContent = `${productPrice.toLocaleString('fr-FR')} FCFA`;
+            priceDisplay.textContent = `${originalPrice.toLocaleString('fr-FR')} FCFA`;
             statusEl.textContent = '';
             activeCoupon = null;
             
@@ -334,19 +339,19 @@
             const q = query(couponsCollection, where("code", "==", code));
             const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty || (querySnapshot.docs[0].data().usageLimit && querySnapshot.docs[0].data().timesUsed >= querySnapshot.docs[0].data().usageLimit)) {
+            if (querySnapshot.empty || (querySnapshot.docs[0].data().usageLimit != null && querySnapshot.docs[0].data().timesUsed >= querySnapshot.docs[0].data().usageLimit)) {
                 statusEl.textContent = 'Code non reconnu ou expiré.';
                 statusEl.className = 'text-sm text-center text-red-500 h-4';
             } else {
                 const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
                 activeCoupon = coupon;
-                let newPrice = productPrice;
+                let newPrice = originalPrice;
                 let discountText = '';
                 if (coupon.type === 'percentage') {
-                    newPrice = productPrice * (1 - coupon.value / 100);
+                    newPrice = originalPrice * (1 - coupon.value / 100);
                     discountText = `${coupon.value}%`;
                 } else if (coupon.type === 'fixed') {
-                    newPrice = productPrice - coupon.value;
+                    newPrice = originalPrice - coupon.value;
                     discountText = `${coupon.value.toLocaleString('fr-FR')} FCFA`;
                 }
                 newPrice = Math.max(0, newPrice);
@@ -357,50 +362,40 @@
                 
                 document.getElementById('remove-coupon-btn').addEventListener('click', () => {
                     couponInput.value = '';
-                    applyCoupon(productPrice); 
+                    applyCoupon(originalPrice); 
                 });
             }
         }
 
-        function showOrderForm(product) {
-            const communes = ["Abobo", "Adjamé", "Attécoubé", "Cocody", "Koumassi", "Marcory", "Plateau", "Port-Bouët", "Treichville", "Yopougon", "Anyama", "Bingerville", "Songon", "Autre (à préciser)"];
-            const isPromo = product.slashed_price && product.slashed_price > product.price;
-            let priceInfoHTML = `<p class="mt-1 text-xl font-bold">Prix : <strong class="text-gray-800" id="final-price-display">${product.price.toLocaleString('fr-FR')} FCFA</strong></p>`;
-            if(isPromo) {
-                const savings = product.slashed_price - product.price;
-                priceInfoHTML = `
-                    <p class="mt-1 text-xl font-bold">Prix Promo : <strong class="text-red-500" id="final-price-display">${product.price.toLocaleString('fr-FR')} FCFA</strong></p>
-                    <p class="text-sm text-gray-500">Au lieu de <span class="line-through">${product.slashed_price.toLocaleString('fr-FR')} FCFA</span></p>
-                    <p class="text-sm font-semibold text-green-600">Vous économisez ${savings.toLocaleString('fr-FR')} FCFA !</p>
-                `;
+        function showOrderForm() {
+            if (cart.length === 0) {
+                showToast("Votre panier est vide.", "error");
+                return;
             }
+
+            const communes = ["Abobo", "Adjamé", "Attécoubé", "Cocody", "Koumassi", "Marcory", "Plateau", "Port-Bouët", "Treichville", "Yopougon", "Anyama", "Bingerville", "Songon", "Autre (à préciser)"];
+            const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
             
             DOM.orderModal.innerHTML = `
                 <div class="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
                     <button id="close-order-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
                     <div class="text-center mb-6">
                         <h2 class="text-2xl font-bold">Finaliser la commande</h2>
-                        <p class="mt-2 text-gray-600">Article : <strong class="text-orange-500">${product.name}</strong></p>
-                        <div id="price-summary">${priceInfoHTML}</div>
+                        <p class="mt-2 text-gray-600">Récapitulatif de votre panier</p>
+                        <p class="mt-1 text-xl font-bold">Total : <strong class="text-gray-800" id="final-price-display">${totalPrice.toLocaleString('fr-FR')} FCFA</strong></p>
                     </div>
                     <form id="order-form" class="space-y-4">
-                        <input type="hidden" id="order-product-name" value="${product.name}">
-                        <input type="hidden" id="order-product-price" value="${product.price}">
-                        <input type="hidden" id="order-product-slashed-price" value="${product.slashed_price || ''}">
-                        
-                        <div class="flex items-end space-x-2">
+                         <div class="flex items-end space-x-2">
                             <div class="flex-grow"><label for="coupon-code" class="block text-sm font-medium text-gray-700">Code promo</label><input type="text" id="coupon-code" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
                             <button type="button" id="apply-coupon-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Appliquer</button>
                         </div>
                         <p id="coupon-status" class="text-sm text-center h-4"></p>
-
                         <fieldset class="border-t pt-4">
                             <legend class="text-sm font-semibold text-gray-500 mb-2">Vos informations</legend>
                             <div><label for="customer-name" class="block text-sm font-medium text-gray-700">Nom Complet</label><input type="text" id="customer-name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></div>
                             <div class="mt-4"><label for="customer-phone" class="block text-sm font-medium text-gray-700">Numéro WhatsApp</label><input type="tel" id="customer-phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></div>
                             <div class="mt-4"><label for="second-contact" class="block text-sm font-medium text-gray-700">Second contact (Optionnel)</label><input type="tel" id="second-contact" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4"></div>
                         </fieldset>
-
                         <fieldset class="border-t pt-4">
                             <legend class="text-sm font-semibold text-gray-500 mb-2">Détails de livraison</legend>
                              <div>
@@ -413,14 +408,13 @@
                             <div id="other-location-container" class="hidden mt-4"><label for="delivery-location-other" class="block text-sm font-medium text-gray-700">Veuillez préciser le lieu</label><input type="text" id="delivery-location-other" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4"></div>
                             <div class="mt-4"><label for="availability-details" class="block text-sm font-medium text-gray-700">Vos disponibilités (Jours, heures)</label><textarea id="availability-details" rows="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></textarea></div>
                         </fieldset>
-
                         <button type="submit" id="submit-order-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600 flex items-center justify-center text-lg">Envoyer ma demande</button>
                     </form>
                 </div>
             `;
             DOM.orderModal.classList.remove('hidden');
             
-            document.getElementById('apply-coupon-btn').addEventListener('click', () => applyCoupon(product.price));
+            document.getElementById('apply-coupon-btn').addEventListener('click', () => applyCoupon(totalPrice));
             const deliveryCommuneSelect = document.getElementById('delivery-commune');
             const otherLocationContainer = document.getElementById('other-location-container');
             const otherLocationInput = document.getElementById('delivery-location-other');
@@ -455,7 +449,7 @@
                         }
                         
                         const newUsage = (sfDoc.data().timesUsed || 0) + 1;
-                        if (sfDoc.data().usageLimit && newUsage > sfDoc.data().usageLimit) {
+                        if (sfDoc.data().usageLimit != null && newUsage > sfDoc.data().usageLimit) {
                             throw "Coupon usage limit exceeded";
                         }
                         transaction.update(couponRef, { timesUsed: newUsage });
@@ -479,8 +473,8 @@
             const finalPrice = parseFloat(finalPriceText.replace(/[^0-9]/g, ''));
 
             const orderData = {
-                productName: document.getElementById('order-product-name').value,
-                initialPrice: parseInt(document.getElementById('order-product-price').value),
+                products: cart,
+                initialPrice: cart.reduce((total, item) => total + (item.price * item.quantity), 0),
                 finalPrice: finalPrice,
                 couponUsed: activeCoupon ? activeCoupon.code : null,
                 customerName: document.getElementById('customer-name').value,
@@ -496,6 +490,8 @@
                 await addDoc(ordersCollection, orderData);
                 DOM.orderModal.innerHTML = `<div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg text-center"><div class="text-6xl text-green-500 mb-4"><i class="fas fa-check-circle"></i></div><h2 class="text-2xl font-bold mb-4">Demande reçue !</h2><p class="text-gray-600 mb-6">Merci pour votre confiance. Nous vous contacterons très prochainement sur WhatsApp pour finaliser votre commande.</p><button id="close-order-success-btn" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-500">Fermer</button></div>`;
                 document.getElementById('close-order-success-btn').addEventListener('click', () => DOM.orderModal.classList.add('hidden'));
+                cart = [];
+                updateCartUI();
             } catch (error) {
                 showToast("Erreur lors de l'envoi. Veuillez réessayer.", "error");
             } finally {
@@ -619,11 +615,12 @@
                         <h3 class="text-lg font-semibold mb-2 border-b pb-1">Semaine du ${week}</h3>
                         ${ordersByWeek[week].map(order => {
                              const customerPhoneSanitized = order.customerPhone.replace(/[^0-9+]/g, '');
+                             const productListHTML = order.products.map(p => `<li>${p.quantity} x ${p.name}</li>`).join('');
                              return `<div class="bg-gray-50 border rounded-lg p-4 mb-4">
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div class="md:col-span-2">
-                                        <p class="font-bold text-lg text-orange-600">${order.productName}</p>
-                                        <p class="text-sm text-gray-600">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
+                                        <ul class="list-disc list-inside font-bold text-lg text-orange-600">${productListHTML}</ul>
+                                        <p class="text-sm text-gray-600 mt-2">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
                                         <p class="text-sm text-gray-600">Tel: <a href="https://wa.me/${customerPhoneSanitized}" target="_blank" class="text-green-600 hover:underline font-semibold">${order.customerPhone} <i class="fab fa-whatsapp ml-1"></i></a></p>
                                         ${order.secondContact ? `<p class="text-sm text-gray-600">Tel 2: <span class="font-semibold">${order.secondContact}</span></p>` : ''}
                                     </div>
@@ -664,11 +661,12 @@
             html += '<p class="text-center text-gray-500">Aucune commande archivée.</p>';
         } else {
             html += archivedOrders.map(order => {
+                const productListHTML = order.products.map(p => `<li>${p.quantity} x ${p.name}</li>`).join('');
                 return `<div class="bg-gray-100 border rounded-lg p-4 mb-4 opacity-70">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="md:col-span-2">
-                             <p class="font-bold text-lg text-gray-600">${order.productName}</p>
-                             <p class="text-sm text-gray-600">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
+                             <ul class="list-disc list-inside font-bold text-lg text-gray-600">${productListHTML}</ul>
+                             <p class="text-sm text-gray-600 mt-2">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
                         </div>
                         <div class="text-left md:text-right">
                              <p class="text-sm text-gray-500">${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</p>
@@ -692,11 +690,12 @@
             return;
         }
 
-        const headers = ["Date", "Produit", "Prix Initial", "Prix Final", "Coupon", "Client", "Telephone", "Contact Secondaire", "Lieu de livraison", "Disponibilites"];
+        const headers = ["Date", "Produits", "Prix Initial", "Prix Final", "Coupon", "Client", "Telephone", "Contact Secondaire", "Lieu de livraison", "Disponibilites"];
         const rows = activeOrders.map(order => {
             const date = order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
             const cleanAvail = (order.availabilityDetails || '').replace(/"/g, '""');
-            return [ `"${date}"`, `"${order.productName || ''}"`, order.initialPrice || 0, order.finalPrice || 0, `"${order.couponUsed || ''}"`, `"${order.customerName || ''}"`, `"${order.customerPhone || ''}"`, `"${order.secondContact || ''}"`, `"${order.deliveryLocation || ''}"`, `"${cleanAvail}"`].join(';');
+            const productsString = (order.products || []).map(p => `${p.quantity} x ${p.name}`).join(', ');
+            return [ `"${date}"`, `"${productsString}"`, order.initialPrice || 0, order.finalPrice || 0, `"${order.couponUsed || ''}"`, `"${order.customerName || ''}"`, `"${order.customerPhone || ''}"`, `"${order.secondContact || ''}"`, `"${order.deliveryLocation || ''}"`, `"${cleanAvail}"`].join(';');
         });
 
         const csvContent = "data:text/csv;charset=utf-8," + [headers.join(';')].concat(rows).join('\n');
@@ -903,6 +902,12 @@
                 modal.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
                 modal.querySelector(`#admin-tab-${tabName}`).classList.remove('hidden');
             }
+            if (target.id === 'reset-banner-btn') {
+                e.preventDefault();
+                document.getElementById('banner-image-url').value = '';
+                document.getElementById('banner-link-url').value = '';
+                handleSettingsFormSubmit(e);
+            }
         });
 
         modal.addEventListener('submit', async (e) => {
@@ -950,6 +955,44 @@
                     DOM.deleteConfirmModal.classList.remove('hidden');
                 }
             });
+             
+            const csvFileInput = document.getElementById('csv-file-input');
+            if(document.getElementById('download-template-btn')) {
+                document.getElementById('download-template-btn').addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const csvContent = "data:text/csv;charset=utf-8,name;price;description;slashed_price;images;categoryId\nMontre de luxe;12000;Une très belle montre;15000;https://example.com/image1.jpg|https://example.com/image2.jpg;ID_DE_LA_CATEGORIE";
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri); link.setAttribute("download", "modele_import_articles.csv");
+                    document.body.appendChild(link); link.click(); link.remove();
+                });
+            }
+
+            if(csvFileInput) {
+                csvFileInput.addEventListener('change', (event) => {
+                    const file = event.target.files[0]; if (!file) return;
+                    const importBtn = document.getElementById('import-csv-btn');
+                    importBtn.disabled = true; importBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Importation...`;
+                    Papa.parse(file, {
+                        header: true, skipEmptyLines: true, delimiter: ";",
+                        complete: async (results) => {
+                            const products = results.data;
+                            if(!products.length || !products[0].name || !products[0].price){ showToast("Fichier CSV invalide.", "error"); importBtn.disabled = false; importBtn.innerHTML = `<i class="fas fa-file-csv mr-2"></i>Importer`; csvFileInput.value = ''; return; }
+                            try {
+                                const batch = writeBatch(db); let count = 0;
+                                products.forEach(product => {
+                                    const { name, price, description, slashed_price, images, categoryId } = product;
+                                    const priceNum = parseInt(price) || 0, slashedPriceNum = parseInt(slashed_price) || 0;
+                                    const imagesArray = images ? images.split('|').map(url => url.trim()).filter(url => url) : [];
+                                    if(name && priceNum) { const newProductRef = doc(collection(db, "products")); batch.set(newProductRef, { name: name.trim(), price: priceNum, description: description ? description.trim() : '', slashed_price: slashedPriceNum > priceNum ? slashedPriceNum : null, images: imagesArray, image: imagesArray.length > 0 ? imagesArray[0] : '', categoryId: categoryId || '' }); count++; }
+                                });
+                                await batch.commit(); showToast(`${count} article(s) importé(s) !`, "success");
+                            } catch (error) { showToast("Erreur d'importation.", "error"); } 
+                            finally { importBtn.disabled = false; importBtn.innerHTML = `<i class="fas fa-file-csv mr-2"></i>Importer`; document.getElementById('import-instructions').classList.add('hidden'); csvFileInput.value = ''; }
+                        }
+                    });
+                });
+            }
         }
     }
     function renderAdminProducts(products) {
@@ -1116,6 +1159,10 @@
         renderAdminModalContent(!!currentUser);
         DOM.adminModal.classList.remove('hidden');
     });
+    
+    DOM.cartBtn.addEventListener('click', () => {
+        showCartModal();
+    });
 
     DOM.cancelDeleteBtn.addEventListener('click', () => {
         DOM.deleteConfirmModal.classList.add('hidden');
@@ -1129,13 +1176,144 @@
             renderPublicProducts(allProducts);
         });
         onSnapshot(settingsDoc, (doc) => {
-            if (doc.exists()) {
+            const heroTitle = document.getElementById('hero-title');
+            const heroSubtitle = document.getElementById('hero-subtitle');
+            const heroCta = document.getElementById('hero-cta');
+
+            if (doc.exists() && doc.data().bannerImageUrl) {
                 const data = doc.data();
-                if (data.bannerImageUrl) {
-                    DOM.heroSection.innerHTML = `<a href="${data.bannerLinkUrl || '#'}" target="_blank"><img src="${data.bannerImageUrl}" class="w-full h-auto rounded-lg shadow-lg"></a>`;
-                }
+                DOM.heroSection.innerHTML = `<a href="${data.bannerLinkUrl || '#'}" target="_blank"><img src="${data.bannerImageUrl}" class="w-full h-auto rounded-lg shadow-lg"></a>`;
+            } else if(heroTitle && heroSubtitle && heroCta) {
+                 DOM.heroSection.innerHTML = '';
+                 DOM.heroSection.appendChild(heroTitle);
+                 DOM.heroSection.appendChild(heroSubtitle);
+                 DOM.heroSection.appendChild(heroCta);
             }
         });
+        const savedCart = localStorage.getItem('clickShopCart');
+        if (savedCart) {
+            cart = JSON.parse(savedCart);
+            updateCartUI();
+        }
+    }
+
+    function addToCart(productId) {
+        const product = allProducts.find(p => p.id === productId);
+        if (!product) return;
+        
+        const cartItem = cart.find(item => item.id === productId);
+        if (cartItem) {
+            cartItem.quantity++;
+        } else {
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                quantity: 1,
+                image: (Array.isArray(product.images) && product.images.length > 0) ? product.images[0] : (product.image || '')
+            });
+        }
+        
+        updateCartUI();
+        showToast(`${product.name} a été ajouté au panier !`);
+    }
+
+    function updateCartUI() {
+        localStorage.setItem('clickShopCart', JSON.stringify(cart));
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        if (totalItems > 0) {
+            DOM.cartCount.textContent = totalItems;
+            DOM.cartCount.classList.remove('hidden');
+        } else {
+            DOM.cartCount.classList.add('hidden');
+        }
+    }
+
+    function showCartModal() {
+        DOM.cartModal.classList.remove('hidden');
+        renderCartModalContent();
+    }
+    
+    function renderCartModalContent() {
+        if (cart.length === 0) {
+            DOM.cartModal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg relative">
+                     <button id="close-cart-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+                     <h2 class="text-2xl font-bold text-center mb-6">Votre Panier</h2>
+                     <p class="text-center text-gray-500">Votre panier est vide.</p>
+                </div>
+            `;
+        } else {
+            const cartItemsHTML = cart.map(item => `
+                <div class="flex items-center justify-between py-4 border-b">
+                    <div class="flex items-center">
+                        <img src="${item.image}" class="h-16 w-16 object-cover rounded-md mr-4">
+                        <div>
+                            <p class="font-semibold">${item.name}</p>
+                            <p class="text-sm text-gray-600">${item.price.toLocaleString('fr-FR')} FCFA</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <input type="number" min="1" value="${item.quantity}" data-id="${item.id}" class="quantity-input w-16 text-center border rounded">
+                        <button data-id="${item.id}" class="remove-from-cart-btn text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+            DOM.cartModal.innerHTML = `
+                 <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg relative max-h-[90vh] flex flex-col">
+                     <button id="close-cart-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+                     <h2 class="text-2xl font-bold text-center mb-6">Votre Panier</h2>
+                     <div class="flex-grow overflow-y-auto pr-4 -mr-4">${cartItemsHTML}</div>
+                     <div class="border-t pt-4 mt-4">
+                        <p class="text-right text-xl font-bold">Total: ${totalPrice.toLocaleString('fr-FR')} FCFA</p>
+                        <button id="checkout-btn" class="mt-4 w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600">Valider la commande</button>
+                     </div>
+                </div>
+            `;
+        }
+        addCartEventListeners();
+    }
+    
+    function addCartEventListeners() {
+        DOM.cartModal.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            if (target.id === 'close-cart-btn') {
+                DOM.cartModal.classList.add('hidden');
+            } else if (target.id === 'checkout-btn') {
+                DOM.cartModal.classList.add('hidden');
+                showOrderForm();
+            } else if (target.classList.contains('remove-from-cart-btn')) {
+                removeFromCart(target.dataset.id);
+            }
+        });
+        DOM.cartModal.addEventListener('change', (e) => {
+            if (e.target.classList.contains('quantity-input')) {
+                updateQuantity(e.target.dataset.id, parseInt(e.target.value));
+            }
+        });
+    }
+
+    function removeFromCart(productId) {
+        cart = cart.filter(item => item.id !== productId);
+        updateCartUI();
+        renderCartModalContent();
+    }
+
+    function updateQuantity(productId, quantity) {
+        const item = cart.find(i => i.id === productId);
+        if (item) {
+            if (quantity > 0) {
+                item.quantity = quantity;
+            } else {
+                removeFromCart(productId);
+            }
+            updateCartUI();
+            renderCartModalContent();
+        }
     }
         
     initialize();
