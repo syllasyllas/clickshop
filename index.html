@@ -30,9 +30,20 @@
         body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
         .transition-all { transition: all 0.3s ease-in-out; }
         .hidden-truly { display: none; }
-        /* Animation pour le toast */
         .toast-enter { opacity: 0; transform: translateY(20px); }
         .toast-exit { opacity: 0; transform: translateY(20px); }
+        .active-tab {
+            border-bottom: 2px solid #F97316; /* orange-500 */
+            color: #1F2937; /* gray-800 */
+        }
+        #lightbox { display: none; }
+        #lightbox.active { display: flex; }
+        #lightbox-thumbnails img { cursor: pointer; border: 2px solid transparent; }
+        #lightbox-thumbnails img.active-thumb { border-color: #F97316; }
+        .category-filter-btn.active {
+            background-color: #F97316;
+            color: white;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -56,10 +67,11 @@
 
     <!-- =========== SECTION PRINCIPALE / HÉROS =========== -->
     <main>
-        <section class="container mx-auto px-6 py-16 text-center">
-            <h1 class="text-4xl md:text-6xl font-extrabold leading-tight">Vos trouvailles au meilleur prix.</h1>
-            <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Parcourez notre sélection d'articles uniques et tendance. Contactez-nous en un clic pour commander.</p>
-            <a href="#articles" class="mt-8 inline-block bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition-all">
+        <section id="hero-section" class="container mx-auto px-6 py-16 text-center">
+            <!-- La bannière sera injectée ici par JavaScript -->
+            <h1 id="hero-title" class="text-4xl md:text-6xl font-extrabold leading-tight">Vos trouvailles au meilleur prix.</h1>
+            <p id="hero-subtitle" class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">Parcourez notre sélection d'articles uniques et tendance. Contactez-nous en un clic pour commander.</p>
+            <a id="hero-cta" href="#articles" class="mt-8 inline-block bg-orange-500 text-white font-bold text-lg px-8 py-4 rounded-lg shadow-lg hover:bg-orange-600 transform hover:scale-105 transition-all">
                 Découvrir les articles
             </a>
         </section>
@@ -68,6 +80,9 @@
         <section id="articles" class="bg-white py-20">
             <div class="container mx-auto px-6">
                 <h2 class="text-3xl font-bold text-center mb-12">Nos Articles</h2>
+                <div id="category-filters" class="flex justify-center flex-wrap gap-2 mb-12">
+                    <!-- Les filtres de catégories seront injectés ici -->
+                </div>
                 <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     <!-- Squelettes de chargement injectés ici -->
                 </div>
@@ -140,16 +155,41 @@
 
     <!-- =========== MODALS & NOTIFICATIONS =========== -->
     <div id="admin-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"></div>
-    <div id="delete-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"><div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center"><h3 class="text-lg font-bold mb-4">Confirmer la suppression</h3><p class="text-gray-600 mb-6">Êtes-vous sûr de vouloir supprimer cet article ? Cette action est irréversible.</p><div class="flex justify-center space-x-4"><button id="cancel-delete-btn" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300">Annuler</button><button id="confirm-delete-btn" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">Supprimer</button></div></div></div>
+    <div id="order-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"></div>
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <h3 class="text-lg font-bold mb-4" id="delete-confirm-title">Confirmer la suppression</h3>
+            <p class="text-gray-600 mb-6" id="delete-confirm-text">Êtes-vous sûr ? Cette action est irréversible.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancel-delete-btn" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300">Annuler</button>
+                <button id="confirm-delete-btn" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700">Supprimer</button>
+            </div>
+        </div>
+    </div>
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+
+    <!-- NOUVEAU: Lightbox Modal -->
+    <div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 z-50 items-center justify-center p-4">
+        <button id="lightbox-close" class="absolute top-4 right-4 text-white text-4xl hover:text-gray-300">&times;</button>
+        <button id="lightbox-prev" class="absolute left-4 top-1/2 -translate-y-1/2 text-white text-4xl hover:text-gray-300 p-4">&lt;</button>
+        <button id="lightbox-next" class="absolute right-4 top-1/2 -translate-y-1/2 text-white text-4xl hover:text-gray-300 p-4">&gt;</button>
+        <div class="w-full h-full flex flex-col items-center justify-center">
+            <div class="flex-grow flex items-center justify-center max-h-[80vh] w-full">
+                 <img id="lightbox-image" src="" alt="Vue agrandie du produit" class="max-h-full max-w-full object-contain">
+            </div>
+            <div id="lightbox-thumbnails" class="flex-shrink-0 mt-4 h-[15vh] space-x-2 overflow-x-auto p-2">
+                <!-- Miniatures injectées ici -->
+            </div>
+        </div>
+    </div>
+
 
     <!-- =========== SCRIPT JAVASCRIPT =========== -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, writeBatch, serverTimestamp, query, orderBy, where, runTransaction, increment, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ================== CONFIGURATION FIREBASE ==================
         const firebaseConfig = {
           apiKey: "AIzaSyAqdl2EGr0YfQ4b6v8tCx5xC_I376vVHEg",
           authDomain: "clickshop-c3370.firebaseapp.com",
@@ -163,19 +203,41 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         const productsCollection = collection(db, 'products');
+        const ordersCollection = collection(db, 'orders');
+        const couponsCollection = collection(db, 'coupons');
+        const categoriesCollection = collection(db, 'categories');
+        const settingsDoc = doc(db, 'settings', 'homepage');
 
         let allProducts = [];
-        let productToDeleteId = null;
+        let allOrders = [];
+        let allCoupons = [];
+        let allCategories = [];
+        let itemToDelete = { id: null, type: null };
+        let ordersListenerUnsubscribe = null;
+        let couponsListenerUnsubscribe = null;
+        let categoriesListenerUnsubscribe = null;
+        let currentUser = null;
 
         const DOM = {
             productListContainer: document.getElementById('product-list'),
             adminModal: document.getElementById('admin-modal'),
+            orderModal: document.getElementById('order-modal'),
             adminBtn: document.getElementById('admin-btn'),
             logoContainer: document.getElementById('logo-container'),
             deleteConfirmModal: document.getElementById('delete-confirm-modal'),
+            deleteConfirmTitle: document.getElementById('delete-confirm-title'),
+            deleteConfirmText: document.getElementById('delete-confirm-text'),
             cancelDeleteBtn: document.getElementById('cancel-delete-btn'),
             confirmDeleteBtn: document.getElementById('confirm-delete-btn'),
             copyrightYear: document.getElementById('copyright-year'),
+            lightbox: document.getElementById('lightbox'),
+            lightboxImage: document.getElementById('lightbox-image'),
+            lightboxThumbnails: document.getElementById('lightbox-thumbnails'),
+            lightboxClose: document.getElementById('lightbox-close'),
+            lightboxPrev: document.getElementById('lightbox-prev'),
+            lightboxNext: document.getElementById('lightbox-next'),
+            heroSection: document.getElementById('hero-section'),
+            categoryFilters: document.getElementById('category-filters'),
         };
 
         function showToast(message, type = 'success') {
@@ -189,312 +251,896 @@
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 4000);
         }
-
+        
         function renderSkeletons() {
-            DOM.productListContainer.innerHTML = Array(4).fill('').map(() => `<div class="bg-white rounded-lg shadow-lg overflow-hidden animate-pulse"><div class="w-full h-56 bg-gray-300"></div><div class="p-6"><div class="h-6 bg-gray-300 rounded w-3/4 mb-2"></div><div class="h-4 bg-gray-300 rounded w-full mb-1"></div><div class="h-4 bg-gray-300 rounded w-5/6 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2 mb-4"></div><div class="h-12 bg-gray-300 rounded-lg w-full"></div></div></div>`).join('');
+            DOM.productListContainer.innerHTML = Array(8).fill('').map(() => `<div class="bg-white rounded-lg shadow-lg overflow-hidden animate-pulse"><div class="w-full h-56 bg-gray-300"></div><div class="p-6"><div class="h-6 bg-gray-300 rounded w-3/4 mb-2"></div><div class="h-4 bg-gray-300 rounded w-full mb-1"></div><div class="h-4 bg-gray-300 rounded w-5/6 mb-4"></div><div class="h-8 bg-gray-300 rounded w-1/2 mb-4"></div><div class="h-12 bg-gray-300 rounded-lg w-full"></div></div></div>`).join('');
         }
 
-        function renderPublicProducts(products) {
-            if (!products.length) { DOM.productListContainer.innerHTML = '<p class="col-span-full text-center text-gray-500">Aucun article à afficher pour le moment.</p>'; return; }
-            DOM.productListContainer.innerHTML = products.map(product => {
+        function renderPublicProducts(products, categoryId = null) {
+            const filteredProducts = categoryId ? products.filter(p => p.categoryId === categoryId) : products;
+            if (!filteredProducts.length) { 
+                DOM.productListContainer.innerHTML = `<p class="col-span-full text-center text-gray-500">Aucun article dans cette catégorie pour le moment.</p>`; 
+                return; 
+            }
+            DOM.productListContainer.innerHTML = filteredProducts.map(product => {
                 const isPromo = product.slashed_price && product.slashed_price > product.price;
                 let promoBadge = '';
-                let priceHTML = `<p class="text-2xl font-extrabold text-orange-500 mb-4">${product.price.toLocaleString('fr-FR')} FCFA</p>`;
+                let priceHTML = `<p class="text-xl lg:text-2xl font-extrabold text-orange-500 mb-4">${product.price.toLocaleString('fr-FR')} FCFA</p>`;
 
                 if (isPromo) {
                     const reduction = Math.round(((product.slashed_price - product.price) / product.slashed_price) * 100);
                     promoBadge = `<div class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">-${reduction}%</div>`;
                     priceHTML = `
                         <div class="flex items-end space-x-2 mb-4">
-                            <p class="text-2xl font-extrabold text-red-500">${product.price.toLocaleString('fr-FR')} FCFA</p>
-                            <p class="text-lg line-through text-gray-500">${product.slashed_price.toLocaleString('fr-FR')} FCFA</p>
+                            <p class="text-xl lg:text-2xl font-extrabold text-red-500">${product.price.toLocaleString('fr-FR')} FCFA</p>
+                            <p class="text-base line-through text-gray-500">${product.slashed_price.toLocaleString('fr-FR')} FCFA</p>
                         </div>
                     `;
                 }
 
+                const images = (Array.isArray(product.images) && product.images.length > 0) ? product.images : (product.image ? [product.image] : []);
+                const firstImage = images[0] || 'https://placehold.co/600x400/cccccc/ffffff?text=Image+indisponible';
+                const imageCountIndicator = images.length > 1 ? `<div class="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded"><i class="fas fa-images mr-1"></i> ${images.length}</div>` : '';
+
                 return `
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col transform hover:-translate-y-2 transition-all">
-                    <div class="relative">
-                        <img src="${product.image}" alt="${product.name}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/cccccc/ffffff?text=Image+invalide';">
+                <div class="product-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col transform hover:-translate-y-2 transition-all">
+                    <div class="relative product-image-container cursor-pointer" data-product-id="${product.id}">
+                        <img src="${firstImage}" alt="${product.name}" class="w-full h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/cccccc/ffffff?text=Image+invalide';">
                         ${promoBadge}
+                        ${imageCountIndicator}
                     </div>
                     <div class="p-6 flex-grow flex flex-col">
-                        <h3 class="text-xl font-bold mb-2">${product.name}</h3>
-                        <p class="text-gray-600 mb-4 flex-grow">${product.description}</p>
+                        <h3 class="text-lg font-bold mb-2">${product.name}</h3>
+                        <p class="text-gray-600 mb-4 flex-grow text-sm">${product.description}</p>
                         <div class="mt-auto">
                             ${priceHTML}
-                            <a href="https://wa.me/2250103112944?text=Bonjour, je suis intéressé(e) par l'article '${product.name}'" target="_blank" class="w-full text-center bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-500 transition-all flex items-center justify-center">
-                                <i class="fab fa-whatsapp mr-2"></i> Commander
-                            </a>
+                            <button data-product-id="${product.id}" class="order-btn w-full text-center bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-500 transition-all flex items-center justify-center text-base">
+                                <i class="fas fa-shopping-cart mr-2"></i> Commander
+                            </button>
                         </div>
                     </div>
                 </div>`;
             }).join('');
         }
-
-        function renderAdminModalContent(isLoggedIn) {
-            if (isLoggedIn) {
-                DOM.adminModal.innerHTML = `
-                    <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-2xl max-h-full overflow-y-auto relative">
-                        <button id="close-admin-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
-                        <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-2xl font-bold">Panneau d'Administration</h2>
-                            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-sign-out-alt mr-2"></i>Déconnexion</button>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                            <button id="show-add-form-btn" class="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600"><i class="fas fa-plus mr-2"></i>Ajouter un article</button>
-                            <button id="import-csv-btn" class="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600"><i class="fas fa-file-csv mr-2"></i>Importer des articles</button>
-                        </div>
-                        <input type="file" id="csv-file-input" class="hidden" accept=".csv">
-
-                        <div id="import-instructions" class="hidden bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 text-sm">
-                            <p class="font-bold">Comment importer ?</p>
-                            <p class="mt-1">Utilisez un fichier CSV avec les colonnes : <code class="bg-gray-200 text-xs p-1 rounded">name</code>, <code class="bg-gray-200 text-xs p-1 rounded">price</code>, <code class="bg-gray-200 text-xs p-1 rounded">image</code>, <code class="bg-gray-200 text-xs p-1 rounded">description</code>, <code class="bg-gray-200 text-xs p-1 rounded">slashed_price</code>.</p>
-                            <a href="#" id="download-template-btn" class="text-blue-600 hover:underline mt-2 inline-block">Télécharger le modèle</a>
-                        </div>
-                        
-                        <form id="product-form" class="hidden space-y-4 bg-gray-50 p-6 rounded-lg mb-6"></form>
-                        <h3 class="text-xl font-semibold mt-8 mb-4">Articles existants</h3>
-                        <div id="admin-product-list" class="space-y-3"></div>
-                    </div>`;
-                renderAdminProducts(allProducts);
-            } else {
-                DOM.adminModal.innerHTML = `<div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md max-h-full overflow-y-auto relative"><button id="close-admin-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button><h2 class="text-2xl font-bold mb-6 text-center">Connexion Administrateur</h2><form id="login-form" class="space-y-4"><div><label for="admin-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="admin-email" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" required></div><div><label for="admin-password" class="block text-sm font-medium text-gray-700">Mot de passe</label><input type="password" id="admin-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" required></div><p id="login-error" class="text-red-500 text-sm text-center hidden"></p><button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600">Se connecter</button></form></div>`;
+        
+        DOM.productListContainer.addEventListener('click', (e) => {
+            const imageContainer = e.target.closest('.product-image-container');
+            if (imageContainer) {
+                openLightbox(imageContainer.dataset.productId, 0);
+                return;
             }
-            addAdminEventListeners(isLoggedIn);
-        }
 
-        function renderAdminProducts(products) {
-            const container = document.getElementById('admin-product-list');
-            if (!container) return;
-            if (!products.length) { container.innerHTML = '<p class="text-center text-gray-500">Aucun article à gérer.</p>'; return; }
-            container.innerHTML = products.map(product => {
-                const isPromo = product.slashed_price && product.slashed_price > product.price;
-                const priceDisplay = isPromo 
-                    ? `<span class="text-red-500">${product.price.toLocaleString('fr-FR')} FCFA</span> <span class="line-through text-gray-500 text-sm">${product.slashed_price.toLocaleString('fr-FR')} FCFA</span>`
-                    : `<strong>${product.price.toLocaleString('fr-FR')} FCFA</strong>`;
-
-                return `<div class="bg-gray-100 p-3 rounded-lg flex items-center justify-between" data-id="${product.id}">
-                    <div class="flex items-center truncate">
-                        <img src="${product.image}" class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/100/ccc/fff?text=Img';">
-                        <span class="truncate">${product.name} - ${priceDisplay}</span>
-                    </div>
-                    <div class="space-x-2 flex-shrink-0">
-                        <button class="edit-btn text-blue-500 hover:text-blue-700" title="Modifier"><i class="fas fa-pencil-alt"></i></button>
-                        <button class="delete-btn text-red-500 hover:text-red-700" title="Supprimer"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-        
-        onSnapshot(productsCollection, (snapshot) => {
-            allProducts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            renderPublicProducts(allProducts);
-            renderAdminProducts(allProducts);
+            const orderButton = e.target.closest('.order-btn');
+            if (orderButton) {
+                const productId = orderButton.dataset.productId;
+                const product = allProducts.find(p => p.id === productId);
+                if (product) showOrderForm(product);
+            }
         });
+        
+        let activeCoupon = null;
+        async function applyCoupon(productPrice) {
+            const couponInput = document.getElementById('coupon-code');
+            const code = couponInput.value.trim().toUpperCase();
+            const statusEl = document.getElementById('coupon-status');
+            const priceDisplay = document.getElementById('final-price-display');
+            
+            priceDisplay.textContent = `${productPrice.toLocaleString('fr-FR')} FCFA`;
+            statusEl.textContent = '';
+            activeCoupon = null;
+            
+            if (!code) return;
 
-        function showProductForm(product = null) {
-            document.getElementById('import-instructions')?.classList.add('hidden');
-            const form = document.getElementById('product-form');
-            form.innerHTML = `
-                <h3 class="text-xl font-semibold text-center">${product ? "Modifier l'article" : "Ajouter un article"}</h3>
-                <input type="hidden" id="product-id" value="${product ? product.id : ''}">
-                <div><label for="product-name" class="block text-sm font-medium text-gray-700">Nom</label><input type="text" id="product-name" class="mt-1 block w-full" value="${product ? product.name : ''}" required></div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label for="product-price" class="block text-sm font-medium text-gray-700">Prix de vente (FCFA)</label><input type="number" id="product-price" class="mt-1 block w-full" value="${product ? product.price : ''}" required></div>
-                    <div><label for="product-slashed-price" class="block text-sm font-medium text-gray-700">Prix barré (Optionnel)</label><input type="number" id="product-slashed-price" class="mt-1 block w-full" value="${product && product.slashed_price ? product.slashed_price : ''}"></div>
+            const q = query(couponsCollection, where("code", "==", code));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty || (querySnapshot.docs[0].data().usageLimit && querySnapshot.docs[0].data().timesUsed >= querySnapshot.docs[0].data().usageLimit)) {
+                statusEl.textContent = 'Code non reconnu ou expiré.';
+                statusEl.className = 'text-sm text-center text-red-500 h-4';
+            } else {
+                const coupon = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+                activeCoupon = coupon;
+                let newPrice = productPrice;
+                let discountText = '';
+                if (coupon.type === 'percentage') {
+                    newPrice = productPrice * (1 - coupon.value / 100);
+                    discountText = `${coupon.value}%`;
+                } else if (coupon.type === 'fixed') {
+                    newPrice = productPrice - coupon.value;
+                    discountText = `${coupon.value.toLocaleString('fr-FR')} FCFA`;
+                }
+                newPrice = Math.max(0, newPrice);
+                
+                priceDisplay.textContent = `${newPrice.toLocaleString('fr-FR')} FCFA`;
+                statusEl.innerHTML = `Réduction de <strong>${discountText}</strong> appliquée ! <button type="button" id="remove-coupon-btn" class="text-xs text-gray-500 hover:underline ml-1">(Supprimer)</button>`;
+                statusEl.className = 'text-sm text-center text-green-600 h-4';
+                
+                document.getElementById('remove-coupon-btn').addEventListener('click', () => {
+                    couponInput.value = '';
+                    applyCoupon(productPrice); 
+                });
+            }
+        }
+
+        function showOrderForm(product) {
+            const communes = ["Abobo", "Adjamé", "Attécoubé", "Cocody", "Koumassi", "Marcory", "Plateau", "Port-Bouët", "Treichville", "Yopougon", "Anyama", "Bingerville", "Songon", "Autre (à préciser)"];
+            const isPromo = product.slashed_price && product.slashed_price > product.price;
+            let priceInfoHTML = `<p class="mt-1 text-xl font-bold">Prix : <strong class="text-gray-800" id="final-price-display">${product.price.toLocaleString('fr-FR')} FCFA</strong></p>`;
+            if(isPromo) {
+                const savings = product.slashed_price - product.price;
+                priceInfoHTML = `
+                    <p class="mt-1 text-xl font-bold">Prix Promo : <strong class="text-red-500" id="final-price-display">${product.price.toLocaleString('fr-FR')} FCFA</strong></p>
+                    <p class="text-sm text-gray-500">Au lieu de <span class="line-through">${product.slashed_price.toLocaleString('fr-FR')} FCFA</span></p>
+                    <p class="text-sm font-semibold text-green-600">Vous économisez ${savings.toLocaleString('fr-FR')} FCFA !</p>
+                `;
+            }
+            
+            DOM.orderModal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-2xl p-6 md:p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
+                    <button id="close-order-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-bold">Finaliser la commande</h2>
+                        <p class="mt-2 text-gray-600">Article : <strong class="text-orange-500">${product.name}</strong></p>
+                        <div id="price-summary">${priceInfoHTML}</div>
+                    </div>
+                    <form id="order-form" class="space-y-4">
+                        <input type="hidden" id="order-product-name" value="${product.name}">
+                        <input type="hidden" id="order-product-price" value="${product.price}">
+                        <input type="hidden" id="order-product-slashed-price" value="${product.slashed_price || ''}">
+                        
+                        <div class="flex items-end space-x-2">
+                            <div class="flex-grow"><label for="coupon-code" class="block text-sm font-medium text-gray-700">Code promo</label><input type="text" id="coupon-code" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
+                            <button type="button" id="apply-coupon-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Appliquer</button>
+                        </div>
+                        <p id="coupon-status" class="text-sm text-center h-4"></p>
+
+                        <fieldset class="border-t pt-4">
+                            <legend class="text-sm font-semibold text-gray-500 mb-2">Vos informations</legend>
+                            <div><label for="customer-name" class="block text-sm font-medium text-gray-700">Nom Complet</label><input type="text" id="customer-name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></div>
+                            <div class="mt-4"><label for="customer-phone" class="block text-sm font-medium text-gray-700">Numéro WhatsApp</label><input type="tel" id="customer-phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></div>
+                            <div class="mt-4"><label for="second-contact" class="block text-sm font-medium text-gray-700">Second contact (Optionnel)</label><input type="tel" id="second-contact" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4"></div>
+                        </fieldset>
+
+                        <fieldset class="border-t pt-4">
+                            <legend class="text-sm font-semibold text-gray-500 mb-2">Détails de livraison</legend>
+                             <div>
+                                <label for="delivery-commune" class="block text-sm font-medium text-gray-700">Commune</label>
+                                <select id="delivery-commune" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required>
+                                    <option value="" disabled selected>Choisir une commune...</option>
+                                    ${communes.map(c => `<option value="${c}">${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div id="other-location-container" class="hidden mt-4"><label for="delivery-location-other" class="block text-sm font-medium text-gray-700">Veuillez préciser le lieu</label><input type="text" id="delivery-location-other" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4"></div>
+                            <div class="mt-4"><label for="availability-details" class="block text-sm font-medium text-gray-700">Vos disponibilités (Jours, heures)</label><textarea id="availability-details" rows="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4" required></textarea></div>
+                        </fieldset>
+
+                        <button type="submit" id="submit-order-btn" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600 flex items-center justify-center text-lg">Envoyer ma demande</button>
+                    </form>
                 </div>
-                <div><label for="product-image" class="block text-sm font-medium text-gray-700">URL de l'image</label><input type="url" id="product-image" class="mt-1 block w-full" value="${product ? product.image : ''}" required></div>
-                <div><label for="product-description" class="block text-sm font-medium text-gray-700">Description</label><textarea id="product-description" rows="4" class="mt-1 block w-full" required>${product ? product.description : ''}</textarea></div>
-                <div class="flex justify-end space-x-4"><button type="button" id="cancel-form-btn" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600">Annuler</button><button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">Enregistrer</button></div>
             `;
-            form.classList.remove('hidden');
-            form.querySelector('#cancel-form-btn').addEventListener('click', () => form.classList.add('hidden'));
+            DOM.orderModal.classList.remove('hidden');
+            
+            document.getElementById('apply-coupon-btn').addEventListener('click', () => applyCoupon(product.price));
+            const deliveryCommuneSelect = document.getElementById('delivery-commune');
+            const otherLocationContainer = document.getElementById('other-location-container');
+            const otherLocationInput = document.getElementById('delivery-location-other');
+
+            deliveryCommuneSelect.addEventListener('change', () => {
+                if (deliveryCommuneSelect.value === 'Autre (à préciser)') {
+                    otherLocationContainer.classList.remove('hidden');
+                    otherLocationInput.required = true;
+                } else {
+                    otherLocationContainer.classList.add('hidden');
+                    otherLocationInput.required = false;
+                }
+            });
+
+            document.getElementById('close-order-btn').addEventListener('click', () => { activeCoupon = null; DOM.orderModal.classList.add('hidden'); });
+            document.getElementById('order-form').addEventListener('submit', handleOrderSubmit);
         }
         
-        async function handleFormSubmit(e) {
+        async function handleOrderSubmit(e) {
             e.preventDefault();
-            const id = e.target.querySelector('#product-id').value;
-            const price = parseInt(e.target.querySelector('#product-price').value);
-            const slashed_price = parseInt(e.target.querySelector('#product-slashed-price').value) || 0;
+            const submitBtn = document.getElementById('submit-order-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Envoi...`;
+            
+            if (activeCoupon) {
+                const couponRef = doc(db, "coupons", activeCoupon.id);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const sfDoc = await transaction.get(couponRef);
+                        if (!sfDoc.exists()) {
+                            throw "Coupon not found";
+                        }
+                        
+                        const newUsage = (sfDoc.data().timesUsed || 0) + 1;
+                        if (sfDoc.data().usageLimit && newUsage > sfDoc.data().usageLimit) {
+                            throw "Coupon usage limit exceeded";
+                        }
+                        transaction.update(couponRef, { timesUsed: newUsage });
+                    });
+                } catch (error) {
+                    console.error("Coupon transaction failed: ", error);
+                    showToast("Ce code promo n'est plus valide.", "error");
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `Envoyer ma demande`;
+                    return;
+                }
+            }
+            
+            const commune = document.getElementById('delivery-commune').value;
+            let deliveryLocation = commune;
+            if (commune === 'Autre (à préciser)') {
+                deliveryLocation = document.getElementById('delivery-location-other').value;
+            }
+            
+            const finalPriceText = document.getElementById('final-price-display').textContent;
+            const finalPrice = parseFloat(finalPriceText.replace(/[^0-9]/g, ''));
 
-            const productData = { 
-                name: e.target.querySelector('#product-name').value, 
-                price: price, 
-                slashed_price: slashed_price > price ? slashed_price : null,
-                image: e.target.querySelector('#product-image').value, 
-                description: e.target.querySelector('#product-description').value, 
+            const orderData = {
+                productName: document.getElementById('order-product-name').value,
+                initialPrice: parseInt(document.getElementById('order-product-price').value),
+                finalPrice: finalPrice,
+                couponUsed: activeCoupon ? activeCoupon.code : null,
+                customerName: document.getElementById('customer-name').value,
+                customerPhone: document.getElementById('customer-phone').value,
+                deliveryLocation: deliveryLocation,
+                availabilityDetails: document.getElementById('availability-details').value,
+                secondContact: document.getElementById('second-contact').value,
+                status: 'Nouvelle',
+                createdAt: serverTimestamp()
             };
 
             try {
-                if (id) { await updateDoc(doc(db, 'products', id), productData); showToast('Article mis à jour !'); } 
-                else { await addDoc(productsCollection, productData); showToast('Article ajouté avec succès !'); }
-                e.target.classList.add('hidden');
-            } catch (error) { showToast("Erreur: " + error.message, 'error'); }
-        }
-
-        async function handleAdminListClick(e) {
-            const button = e.target.closest('button');
-            if (!button) return;
-            const productElement = button.closest('[data-id]');
-            const productId = productElement.dataset.id;
-            if (button.classList.contains('edit-btn')) {
-                const docSnap = await getDoc(doc(db, 'products', productId));
-                if (docSnap.exists()) { showProductForm({ id: productId, ...docSnap.data() }); } 
-                else { showToast('Article introuvable.', 'error'); }
-            }
-            if (button.classList.contains('delete-btn')) {
-                productToDeleteId = productId;
-                DOM.deleteConfirmModal.classList.remove('hidden');
+                await addDoc(ordersCollection, orderData);
+                DOM.orderModal.innerHTML = `<div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg text-center"><div class="text-6xl text-green-500 mb-4"><i class="fas fa-check-circle"></i></div><h2 class="text-2xl font-bold mb-4">Demande reçue !</h2><p class="text-gray-600 mb-6">Merci pour votre confiance. Nous vous contacterons très prochainement sur WhatsApp pour finaliser votre commande.</p><button id="close-order-success-btn" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-500">Fermer</button></div>`;
+                document.getElementById('close-order-success-btn').addEventListener('click', () => DOM.orderModal.classList.add('hidden'));
+            } catch (error) {
+                showToast("Erreur lors de l'envoi. Veuillez réessayer.", "error");
+            } finally {
+                activeCoupon = null;
             }
         }
+        
+        let lightboxCurrentProduct = null;
+        let lightboxCurrentIndex = 0;
 
-        DOM.confirmDeleteBtn.addEventListener('click', async () => {
-            if (!productToDeleteId) return;
-            try { await deleteDoc(doc(db, 'products', productToDeleteId)); showToast('Article supprimé.'); } 
-            catch (error) { showToast("Erreur de suppression.", 'error'); } 
-            finally { productToDeleteId = null; DOM.deleteConfirmModal.classList.add('hidden'); }
+        function openLightbox(productId, startIndex) {
+            lightboxCurrentProduct = allProducts.find(p => p.id === productId);
+            if (!lightboxCurrentProduct) return;
+            const images = (Array.isArray(lightboxCurrentProduct.images) && lightboxCurrentProduct.images.length > 0) ? lightboxCurrentProduct.images : [];
+            if (images.length === 0) return;
+            lightboxCurrentIndex = startIndex;
+            updateLightboxContent();
+            DOM.lightbox.classList.add('active');
+        }
+
+        function updateLightboxContent() {
+            const images = lightboxCurrentProduct.images;
+            DOM.lightboxImage.src = images[lightboxCurrentIndex];
+            DOM.lightboxThumbnails.innerHTML = images.map((imgUrl, index) => `<img src="${imgUrl}" data-index="${index}" class="h-full object-contain rounded ${index === lightboxCurrentIndex ? 'active-thumb' : ''}">`).join('');
+            DOM.lightboxPrev.style.display = images.length > 1 ? 'block' : 'none';
+            DOM.lightboxNext.style.display = images.length > 1 ? 'block' : 'none';
+        }
+
+        function navigateLightbox(direction) {
+            const images = lightboxCurrentProduct.images;
+            const newIndex = lightboxCurrentIndex + direction;
+            if (newIndex >= 0 && newIndex < images.length) {
+                lightboxCurrentIndex = newIndex;
+                updateLightboxContent();
+            }
+        }
+        
+        DOM.lightboxClose.addEventListener('click', () => DOM.lightbox.classList.remove('active'));
+        DOM.lightboxPrev.addEventListener('click', () => navigateLightbox(-1));
+        DOM.lightboxNext.addEventListener('click', () => navigateLightbox(1));
+        DOM.lightboxThumbnails.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG') {
+                lightboxCurrentIndex = parseInt(e.target.dataset.index);
+                updateLightboxContent();
+            }
         });
-
+        
         onAuthStateChanged(auth, user => {
+            currentUser = user;
             const isLoggedIn = !!user;
             DOM.adminBtn.innerHTML = isLoggedIn ? '<i class="fas fa-cog mr-2"></i>Gérer' : '<i class="fas fa-lock mr-2"></i>Admin';
             DOM.adminBtn.classList.toggle('bg-orange-500', isLoggedIn);
             DOM.adminBtn.classList.toggle('bg-gray-800', !isLoggedIn);
-        });
-        
-        let logoClicks = 0;
-        DOM.logoContainer.addEventListener('click', () => {
-            logoClicks++;
-            if (logoClicks === 5) { DOM.adminBtn.classList.remove('hidden-truly'); showToast('Accès administrateur révélé.'); }
-            setTimeout(() => { logoClicks = 0; }, 1500);
-        });
-        
-        DOM.adminBtn.addEventListener('click', () => {
-            renderAdminModalContent(!!auth.currentUser);
-            DOM.adminModal.classList.remove('hidden');
-        });
 
-        function addAdminEventListeners(isLoggedIn) {
-            document.getElementById('close-admin-btn').addEventListener('click', () => DOM.adminModal.classList.add('hidden'));
-            if(isLoggedIn) {
-                document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); DOM.adminModal.classList.add('hidden'); });
-                document.getElementById('show-add-form-btn').addEventListener('click', () => showProductForm());
-                document.getElementById('admin-product-list').addEventListener('click', handleAdminListClick);
-                const form = document.getElementById('product-form');
-                if (form) form.addEventListener('submit', handleFormSubmit);
-
-                const importBtn = document.getElementById('import-csv-btn');
-                const csvFileInput = document.getElementById('csv-file-input');
-                const importInstructions = document.getElementById('import-instructions');
-                
-                importBtn.addEventListener('click', () => {
-                    document.getElementById('product-form').classList.add('hidden');
-                    importInstructions.classList.toggle('hidden');
-                    if(!importInstructions.classList.contains('hidden')){
-                        csvFileInput.click();
-                    }
-                });
-
-                document.getElementById('download-template-btn').addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const csvContent = "data:text/csv;charset=utf-8,name;price;image;description;slashed_price\nMontre de luxe;12000;https://example.com/image.jpg;Une très belle montre;15000";
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", "modele_import_articles.csv");
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                });
-
-                csvFileInput.addEventListener('change', (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-
-                    importBtn.disabled = true;
-                    importBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Importation...`;
-
-                    Papa.parse(file, {
-                        header: true,
-                        skipEmptyLines: true,
-                        delimiter: ";",
-                        complete: async (results) => {
-                            const products = results.data;
-                            if(!products.length || !products[0].name || !products[0].price){
-                                showToast("Fichier CSV invalide ou mal formaté. Vérifiez les en-têtes.", "error");
-                                importBtn.disabled = false;
-                                importBtn.innerHTML = `<i class="fas fa-file-csv mr-2"></i>Importer des articles`;
-                                csvFileInput.value = '';
-                                return;
-                            }
-
-                            try {
-                                const batch = writeBatch(db);
-                                let count = 0;
-                                products.forEach(product => {
-                                    const { name, price, image, description, slashed_price } = product;
-                                    const priceNum = parseInt(price) || 0;
-                                    const slashedPriceNum = parseInt(slashed_price) || 0;
-                                    if(name && priceNum) {
-                                        const newProductRef = doc(collection(db, "products"));
-                                        batch.set(newProductRef, {
-                                            name: name.trim(),
-                                            price: priceNum,
-                                            image: image ? image.trim() : '',
-                                            description: description ? description.trim() : '',
-                                            slashed_price: slashedPriceNum > priceNum ? slashedPriceNum : null
-                                        });
-                                        count++;
-                                    }
-                                });
-                                await batch.commit();
-                                showToast(`${count} article(s) importé(s) avec succès !`, "success");
-                            } catch (error) {
-                                showToast("Erreur lors de l'importation.", "error");
-                                console.error("Batch write failed: ", error);
-                            } finally {
-                                importBtn.disabled = false;
-                                importBtn.innerHTML = `<i class="fas fa-file-csv mr-2"></i>Importer des articles`;
-                                importInstructions.classList.add('hidden');
-                                csvFileInput.value = '';
-                            }
-                        },
-                        error: (error) => {
-                            showToast("Erreur de lecture du fichier.", "error");
-                            console.error(error);
-                            importBtn.disabled = false;
-                            importBtn.innerHTML = `<i class="fas fa-file-csv mr-2"></i>Importer des articles`;
-                            csvFileInput.value = '';
-                        }
+            if (isLoggedIn) {
+                if (!ordersListenerUnsubscribe) {
+                    const q = query(ordersCollection, orderBy('createdAt', 'desc'));
+                    ordersListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                        allOrders = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+                        renderAdminOrders(allOrders);
+                        const orderCountBadge = document.getElementById('order-count-badge');
+                        if(orderCountBadge) orderCountBadge.textContent = allOrders.filter(o => o.status !== 'Archivée').length;
                     });
-                });
-                
+                }
+                if (!couponsListenerUnsubscribe) {
+                    const q = query(couponsCollection, orderBy('code'));
+                    couponsListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                        allCoupons = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+                        renderAdminCoupons(allCoupons);
+                    });
+                }
+                if (!categoriesListenerUnsubscribe) {
+                    const q = query(categoriesCollection, orderBy('name'));
+                    categoriesListenerUnsubscribe = onSnapshot(q, (snapshot) => {
+                        allCategories = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+                        renderCategoryFilters(allCategories);
+                        renderAdminCategories(allCategories);
+                    });
+                }
             } else {
-                document.getElementById('login-form').addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const [email, password, errorP] = [e.target.querySelector('#admin-email').value, e.target.querySelector('#admin-password').value, e.target.querySelector('#login-error')];
-                    errorP.classList.add('hidden');
-                    try {
-                        await signInWithEmailAndPassword(auth, email, password);
-                        renderAdminModalContent(true);
-                    } catch (error) { errorP.textContent = "Email ou mot de passe incorrect."; errorP.classList.remove('hidden'); }
-                });
+                if (ordersListenerUnsubscribe) { ordersListenerUnsubscribe(); ordersListenerUnsubscribe = null; }
+                if (couponsListenerUnsubscribe) { couponsListenerUnsubscribe(); couponsListenerUnsubscribe = null; }
+                if (categoriesListenerUnsubscribe) { categoriesListenerUnsubscribe(); categoriesListenerUnsubscribe = null; }
+                allOrders = [];
+                allCoupons = [];
+                allCategories = [];
+                DOM.adminModal.classList.add('hidden');
             }
+        });
+        
+        function getStartOfWeek(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setHours(0, 0, 0, 0);
+            return new Date(d.setDate(diff));
         }
-        
-        DOM.cancelDeleteBtn.addEventListener('click', () => DOM.deleteConfirmModal.classList.add('hidden'));
-        
-        // --- INITIALISATION AU CHARGEMENT DE LA PAGE ---
-        function initialize() {
-            DOM.copyrightYear.textContent = new Date().getFullYear();
-            renderSkeletons();
-        }
-        
-        initialize();
 
-    </script>
+        function renderAdminOrders(orders) {
+            const container = document.getElementById('admin-tab-orders');
+            if (!container) return;
+            
+            const activeOrders = orders.filter(o => o.status !== 'Archivée');
+            
+            const ordersByWeek = activeOrders.reduce((acc, order) => {
+                if (!order.createdAt) return acc;
+                const date = order.createdAt.toDate();
+                const startOfWeek = getStartOfWeek(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                if (!acc[startOfWeek]) acc[startOfWeek] = [];
+                acc[startOfWeek].push(order);
+                return acc;
+            }, {});
+
+            let html = `<div class="flex justify-between items-center mb-4"><button id="show-archives-btn" class="text-sm text-blue-600 hover:underline">Voir les archives</button><button id="export-orders-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"><i class="fas fa-file-excel mr-2"></i>Exporter en CSV</button></div>`;
+
+            if (Object.keys(ordersByWeek).length === 0) {
+                html += '<p class="text-center text-gray-500">Aucune commande active pour le moment.</p>';
+            } else {
+                 html += Object.keys(ordersByWeek).sort((a, b) => new Date(b.split('/').reverse().join('-')) - new Date(a.split('/').reverse().join('-'))).map(week => `
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-2 border-b pb-1">Semaine du ${week}</h3>
+                        ${ordersByWeek[week].map(order => {
+                             const customerPhoneSanitized = order.customerPhone.replace(/[^0-9+]/g, '');
+                             return `<div class="bg-gray-50 border rounded-lg p-4 mb-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="md:col-span-2">
+                                        <p class="font-bold text-lg text-orange-600">${order.productName}</p>
+                                        <p class="text-sm text-gray-600">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
+                                        <p class="text-sm text-gray-600">Tel: <a href="https://wa.me/${customerPhoneSanitized}" target="_blank" class="text-green-600 hover:underline font-semibold">${order.customerPhone} <i class="fab fa-whatsapp ml-1"></i></a></p>
+                                        ${order.secondContact ? `<p class="text-sm text-gray-600">Tel 2: <span class="font-semibold">${order.secondContact}</span></p>` : ''}
+                                    </div>
+                                    <div class="text-left md:text-right">
+                                         <p class="text-sm text-gray-500">${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</p>
+                                         <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded-full mt-1 inline-block">${order.status}</span>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-3 border-t grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <strong class="text-gray-500 block">Lieu de livraison:</strong>
+                                        <p>${order.deliveryLocation}</p>
+                                    </div>
+                                     <div>
+                                        <strong class="text-gray-500 block">Disponibilités:</strong>
+                                        <p>${order.availabilityDetails}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-3 border-t text-right space-x-2">
+                                    <button data-id="${order.id}" class="archive-order-btn text-sm bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"><i class="fas fa-archive mr-1"></i> Archiver</button>
+                                    <button data-id="${order.id}" class="delete-order-btn text-sm text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                 `).join('');
+            }
+            container.innerHTML = html;
+        }
+
+    function renderArchivedOrders() {
+        const container = document.getElementById('admin-tab-orders');
+        if (!container) return;
+        const archivedOrders = allOrders.filter(o => o.status === 'Archivée');
+        let html = `<div class="flex justify-start mb-4"><button id="show-active-btn" class="text-sm text-blue-600 hover:underline">&larr; Retour aux commandes actives</button></div>`;
+
+        if (archivedOrders.length === 0) {
+            html += '<p class="text-center text-gray-500">Aucune commande archivée.</p>';
+        } else {
+            html += archivedOrders.map(order => {
+                return `<div class="bg-gray-100 border rounded-lg p-4 mb-4 opacity-70">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                             <p class="font-bold text-lg text-gray-600">${order.productName}</p>
+                             <p class="text-sm text-gray-600">Par: <strong class="text-gray-800">${order.customerName}</strong></p>
+                        </div>
+                        <div class="text-left md:text-right">
+                             <p class="text-sm text-gray-500">${order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</p>
+                             <span class="text-xs font-semibold bg-gray-200 text-gray-800 px-2 py-1 rounded-full mt-1 inline-block">${order.status}</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-3 border-t text-right space-x-2">
+                        <button data-id="${order.id}" class="restore-order-btn text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"><i class="fas fa-undo mr-1"></i> Restaurer</button>
+                        <button data-id="${order.id}" class="delete-order-btn text-sm text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        container.innerHTML = html;
+    }
+    
+    function exportOrdersToCSV() {
+        const activeOrders = allOrders.filter(o => o.status !== 'Archivée');
+        if (activeOrders.length === 0) {
+            showToast("Aucune commande active à exporter.", "error");
+            return;
+        }
+
+        const headers = ["Date", "Produit", "Prix Initial", "Prix Final", "Coupon", "Client", "Telephone", "Contact Secondaire", "Lieu de livraison", "Disponibilites"];
+        const rows = activeOrders.map(order => {
+            const date = order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+            const cleanAvail = (order.availabilityDetails || '').replace(/"/g, '""');
+            return [ `"${date}"`, `"${order.productName || ''}"`, order.initialPrice || 0, order.finalPrice || 0, `"${order.couponUsed || ''}"`, `"${order.customerName || ''}"`, `"${order.customerPhone || ''}"`, `"${order.secondContact || ''}"`, `"${order.deliveryLocation || ''}"`, `"${cleanAvail}"`].join(';');
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(';')].concat(rows).join('\n');
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `export_commandes_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    function handleAdminOrderActions(e) {
+        const button = e.target.closest('button');
+        if (!button) return;
+        const id = button.dataset.id;
+        if (button.classList.contains('archive-order-btn')) {
+            updateDoc(doc(db, 'orders', id), { status: 'Archivée' });
+        } else if (button.classList.contains('restore-order-btn')) {
+            updateDoc(doc(db, 'orders', id), { status: 'Nouvelle' });
+        } else if (button.classList.contains('delete-order-btn')) {
+            itemToDelete = { id, type: 'order' };
+            DOM.deleteConfirmTitle.textContent = 'Supprimer la commande';
+            DOM.deleteConfirmText.textContent = 'Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.';
+            DOM.deleteConfirmModal.classList.remove('hidden');
+        } else if (button.id === 'export-orders-btn') {
+            exportOrdersToCSV();
+        } else if (button.id === 'show-archives-btn') {
+            renderArchivedOrders();
+        } else if (button.id === 'show-active-btn') {
+            renderAdminOrders(allOrders);
+        }
+    }
+
+    function renderAdminCoupons(coupons) {
+        const container = document.getElementById('admin-tab-coupons');
+        if (!container) return;
+        let html = `
+            <form id="coupon-form" class="space-y-4 bg-gray-50 p-6 rounded-lg mb-6">
+                <h3 class="text-xl font-semibold text-center">Créer un coupon</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div><label for="coupon-code-input" class="block text-sm font-medium text-gray-700">Code</label><input type="text" id="coupon-code-input" class="mt-1 block w-full uppercase"></div>
+                    <div><label for="coupon-type" class="block text-sm font-medium text-gray-700">Type</label><select id="coupon-type" class="mt-1 block w-full"><option value="percentage">Pourcentage (%)</option><option value="fixed">Montant Fixe (FCFA)</option></select></div>
+                    <div><label for="coupon-value" class="block text-sm font-medium text-gray-700">Valeur</label><input type="number" id="coupon-value" class="mt-1 block w-full"></div>
+                    <div><label for="coupon-limit" class="block text-sm font-medium text-gray-700">Limite d'utilisation</label><input type="number" id="coupon-limit" placeholder="Illimité si vide" class="mt-1 block w-full"></div>
+                </div>
+                <div class="text-right"><button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">Créer</button></div>
+            </form>
+            <h3 class="text-xl font-semibold mt-8 mb-4">Coupons existants</h3>
+        `;
+        if (coupons.length === 0) {
+            html += '<p class="text-center text-gray-500">Aucun coupon créé.</p>';
+        } else {
+            html += `<div class="space-y-3">` + coupons.map(coupon => `
+                <div class="bg-gray-100 p-3 rounded-lg flex items-center justify-between">
+                    <div>
+                        <span class="font-bold text-lg text-green-700">${coupon.code}</span>
+                        <span class="text-gray-600 ml-4">${coupon.type === 'percentage' ? `${coupon.value}%` : `${coupon.value.toLocaleString('fr-FR')} FCFA`}</span>
+                        <span class="text-sm text-gray-500 ml-4">Utilisé ${coupon.timesUsed || 0} / ${coupon.usageLimit || '∞'} fois</span>
+                    </div>
+                    <button data-id="${coupon.id}" class="delete-coupon-btn text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `).join('') + `</div>`;
+        }
+        container.innerHTML = html;
+    }
+    
+    async function handleCouponFormSubmit(e) {
+        e.preventDefault();
+        const code = document.getElementById('coupon-code-input').value.trim().toUpperCase();
+        const type = document.getElementById('coupon-type').value;
+        const value = parseInt(document.getElementById('coupon-value').value);
+        const usageLimit = parseInt(document.getElementById('coupon-limit').value) || null;
+
+        if (!code || !value) {
+            showToast('Veuillez remplir au moins le code et la valeur.', 'error');
+            return;
+        }
+
+        try {
+            await addDoc(couponsCollection, { code, type, value, usageLimit, timesUsed: 0 });
+            showToast('Coupon créé avec succès !');
+            e.target.reset();
+        } catch (error) {
+            showToast("Erreur lors de la création du coupon.", "error");
+        }
+    }
+    
+    async function renderAdminSettings() {
+        const container = document.getElementById('admin-tab-settings');
+        if (!container) return;
+        const docSnap = await getDoc(settingsDoc);
+        const settings = docSnap.exists() ? docSnap.data() : {};
+
+        container.innerHTML = `
+            <form id="settings-form" class="space-y-4 bg-gray-50 p-6 rounded-lg">
+                <h3 class="text-xl font-semibold text-center">Personnalisation de la page d'accueil</h3>
+                <div>
+                    <label for="banner-image-url" class="block text-sm font-medium text-gray-700">URL de l'image de la bannière</label>
+                    <input type="url" id="banner-image-url" value="${settings.bannerImageUrl || ''}" class="mt-1 block w-full" placeholder="https://example.com/promo.jpg">
+                    <p class="text-xs text-gray-500 mt-1">Laissez vide pour afficher le texte par défaut.</p>
+                </div>
+                <div>
+                    <label for="banner-link-url" class="block text-sm font-medium text-gray-700">URL du lien de la bannière</label>
+                    <input type="url" id="banner-link-url" value="${settings.bannerLinkUrl || ''}" class="mt-1 block w-full" placeholder="Lien vers une catégorie ou un produit">
+                </div>
+                 <div class="flex justify-end space-x-2"><button type="button" id="reset-banner-btn" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300">Réinitialiser</button><button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">Enregistrer</button></div>
+            </form>
+        `;
+    }
+
+    async function handleSettingsFormSubmit(e) {
+        e.preventDefault();
+        const bannerImageUrl = document.getElementById('banner-image-url').value.trim();
+        const bannerLinkUrl = document.getElementById('banner-link-url').value.trim();
+        try {
+            await setDoc(settingsDoc, { bannerImageUrl, bannerLinkUrl });
+            showToast('Paramètres mis à jour !');
+        } catch(error) {
+             showToast('Erreur lors de la sauvegarde.', 'error');
+        }
+    }
+    
+    function renderAdminModalContent(isLoggedIn) {
+        if (isLoggedIn) {
+            DOM.adminModal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-2xl p-0 w-full max-w-5xl max-h-[90vh] flex flex-col relative">
+                    <div class="p-6 border-b flex justify-between items-center">
+                       <h2 class="text-2xl font-bold">Panneau d'Administration</h2>
+                       <div class="flex items-center space-x-4">
+                           <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 text-sm"><i class="fas fa-sign-out-alt mr-2"></i>Déconnexion</button>
+                           <button id="close-admin-btn" class="text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+                       </div>
+                    </div>
+                    <div class="flex border-b">
+                        <button class="admin-tab-btn active-tab p-4 font-semibold" data-tab="orders">Commandes <span id="order-count-badge" class="bg-red-500 text-white text-xs rounded-full px-2 py-1 ml-1">0</span></button>
+                        <button class="admin-tab-btn p-4 font-semibold text-gray-500" data-tab="products">Articles</button>
+                        <button class="admin-tab-btn p-4 font-semibold text-gray-500" data-tab="categories">Catégories</button>
+                        <button class="admin-tab-btn p-4 font-semibold text-gray-500" data-tab="coupons">Coupons</button>
+                        <button class="admin-tab-btn p-4 font-semibold text-gray-500" data-tab="settings">Site</button>
+                    </div>
+                    <div id="admin-content-container" class="flex-grow overflow-y-auto p-6">
+                        <div id="admin-tab-orders" class="admin-tab-content"></div>
+                        <div id="admin-tab-products" class="admin-tab-content hidden"></div>
+                        <div id="admin-tab-categories" class="admin-tab-content hidden"></div>
+                        <div id="admin-tab-coupons" class="admin-tab-content hidden"></div>
+                        <div id="admin-tab-settings" class="admin-tab-content hidden"></div>
+                    </div>
+                </div>`;
+            
+            document.getElementById('admin-tab-products').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <button id="show-add-form-btn" class="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-600"><i class="fas fa-plus mr-2"></i>Ajouter un article</button>
+                    <button id="import-csv-btn" class="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-600"><i class="fas fa-file-csv mr-2"></i>Importer des articles</button>
+                </div>
+                <input type="file" id="csv-file-input" class="hidden" accept=".csv">
+                <div id="import-instructions" class="hidden bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 text-sm">
+                    <p class="font-bold">Comment importer ?</p>
+                    <p class="mt-1">Colonnes: <code class="bg-gray-200 text-xs p-1 rounded">name</code>, <code class="bg-gray-200 text-xs p-1 rounded">price</code>, <code class="bg-gray-200 text-xs p-1 rounded">description</code>, <code class="bg-gray-200 text-xs p-1 rounded">slashed_price</code>, <code class="bg-gray-200 text-xs p-1 rounded">images</code> (URLs séparées par "|"), <code class="bg-gray-200 text-xs p-1 rounded">categoryId</code>.</p>
+                    <a href="#" id="download-template-btn" class="text-blue-600 hover:underline mt-2 inline-block">Télécharger le modèle</a>
+                </div>
+                <form id="product-form" class="hidden space-y-4 bg-gray-50 p-6 rounded-lg mb-6"></form>
+                <h3 class="text-xl font-semibold mt-8 mb-4">Articles existants</h3>
+                <div id="admin-product-list" class="space-y-3"></div>
+            `;
+                
+            renderAdminProducts(allProducts);
+            renderAdminOrders(allOrders);
+            renderAdminCoupons(allCoupons);
+            renderAdminCategories(allCategories);
+            renderAdminSettings();
+            addAdminEventListeners(true);
+
+        } else {
+            DOM.adminModal.innerHTML = `<div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md max-h-full overflow-y-auto relative"><button id="close-admin-btn" class="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800">&times;</button><h2 class="text-2xl font-bold mb-6 text-center">Connexion Administrateur</h2><form id="login-form" class="space-y-4"><div><label for="admin-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="admin-email" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" required></div><div><label for="admin-password" class="block text-sm font-medium text-gray-700">Mot de passe</label><input type="password" id="admin-password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" required></div><p id="login-error" class="text-red-500 text-sm text-center hidden"></p><button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-orange-600">Se connecter</button></form></div>`;
+            addAdminEventListeners(false);
+        }
+    }
+    
+    function addAdminEventListeners(isLoggedIn) {
+        const modal = DOM.adminModal;
+        
+        modal.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            if (target.id === 'close-admin-btn') modal.classList.add('hidden');
+            if (!isLoggedIn) return;
+
+            if (target.id === 'logout-btn') signOut(auth);
+            if (target.id === 'show-add-form-btn') showProductForm();
+            if (target.id === 'import-csv-btn') {
+                 document.getElementById('product-form').classList.add('hidden');
+                 document.getElementById('import-instructions').classList.toggle('hidden');
+                 if(!document.getElementById('import-instructions').classList.contains('hidden')) {
+                     document.getElementById('csv-file-input').click();
+                 }
+            }
+             if (target.closest('.admin-tab-btn')) {
+                const tabName = target.closest('.admin-tab-btn').dataset.tab;
+                modal.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active-tab', 'text-gray-500'));
+                target.closest('.admin-tab-btn').classList.add('active-tab');
+                modal.querySelectorAll('.admin-tab-btn:not(.active-tab)').forEach(b => b.classList.add('text-gray-500'));
+                modal.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
+                modal.querySelector(`#admin-tab-${tabName}`).classList.remove('hidden');
+            }
+        });
+
+        modal.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (e.target.id === 'login-form' && !isLoggedIn) {
+                 const [email, password, errorP] = [e.target.querySelector('#admin-email').value, e.target.querySelector('#admin-password').value, e.target.querySelector('#login-error')];
+                 errorP.classList.add('hidden');
+                 try {
+                     await signInWithEmailAndPassword(auth, email, password);
+                     renderAdminModalContent(true);
+                 } catch (error) { errorP.textContent = "Email ou mot de passe incorrect."; errorP.classList.remove('hidden'); }
+            }
+            if (isLoggedIn) {
+                if (e.target.id === 'product-form') handleFormSubmit(e);
+                if (e.target.id === 'coupon-form') handleCouponFormSubmit(e);
+                if (e.target.id === 'category-form') handleCategoryFormSubmit(e);
+                if (e.target.id === 'settings-form') handleSettingsFormSubmit(e);
+            }
+        });
+        
+        if (isLoggedIn) {
+            const productListContainer = document.getElementById('admin-product-list');
+            if (productListContainer) productListContainer.addEventListener('click', handleAdminListClick);
+
+            const ordersContainer = document.getElementById('admin-tab-orders');
+            if (ordersContainer) ordersContainer.addEventListener('click', handleAdminOrderActions);
+            
+            const categoriesContainer = document.getElementById('admin-tab-categories');
+            if (categoriesContainer) categoriesContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('.delete-category-btn');
+                if (button) {
+                    itemToDelete = { id: button.dataset.id, type: 'category' };
+                    DOM.deleteConfirmTitle.textContent = 'Supprimer la catégorie';
+                    DOM.deleteConfirmText.textContent = 'Êtes-vous sûr ? Tous les produits de cette catégorie perdront leur assignation.';
+                    DOM.deleteConfirmModal.classList.remove('hidden');
+                }
+            });
+            const couponContainer = document.getElementById('admin-tab-coupons');
+            if (couponContainer) couponContainer.addEventListener('click', (e) => {
+                 const button = e.target.closest('.delete-coupon-btn');
+                if (button) {
+                    itemToDelete = { id: button.dataset.id, type: 'coupon' };
+                    DOM.deleteConfirmTitle.textContent = 'Supprimer le coupon';
+                    DOM.deleteConfirmText.textContent = 'Êtes-vous sûr de vouloir supprimer ce coupon ?';
+                    DOM.deleteConfirmModal.classList.remove('hidden');
+                }
+            });
+        }
+    }
+    function renderAdminProducts(products) {
+        const container = document.getElementById('admin-product-list');
+        if (!container) return;
+        container.innerHTML = products.length ? products.map(product => {
+            const isPromo = product.slashed_price && product.slashed_price > product.price;
+            const priceDisplay = isPromo 
+                ? `<span class="text-red-500">${product.price.toLocaleString('fr-FR')} FCFA</span> <span class="line-through text-gray-500 text-sm">${product.slashed_price.toLocaleString('fr-FR')} FCFA</span>`
+                : `<strong>${product.price.toLocaleString('fr-FR')} FCFA</strong>`;
+            const firstImage = (Array.isArray(product.images) && product.images.length > 0) ? product.images[0] : (product.image || 'https://placehold.co/100/ccc/fff?text=Img');
+            return `<div class="bg-gray-100 p-3 rounded-lg flex items-center justify-between" data-id="${product.id}">
+                <div class="flex items-center truncate"><img src="${firstImage}" class="h-10 w-10 rounded-md object-cover mr-4 flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/100/ccc/fff?text=Img';"><span class="truncate">${product.name} - ${priceDisplay}</span></div>
+                <div class="space-x-2 flex-shrink-0"><button class="edit-btn text-blue-500 hover:text-blue-700" title="Modifier"><i class="fas fa-pencil-alt"></i></button><button class="delete-btn text-red-500 hover:text-red-700" title="Supprimer"><i class="fas fa-trash-alt"></i></button></div>
+            </div>`;
+        }).join('') : '<p class="text-center text-gray-500">Aucun article à gérer.</p>';
+    }
+    function showProductForm(product = null) {
+        document.getElementById('import-instructions')?.classList.add('hidden');
+        const form = document.getElementById('product-form');
+        const images = (product && Array.isArray(product.images) && product.images.length > 0) ? product.images : (product && product.image ? [product.image] : ['']);
+        const imagesHTML = images.map((url, index) => `<div class="flex items-center space-x-2 image-input-group"><input type="url" class="mt-1 block w-full" value="${url}" placeholder="https://example.com/image.jpg" ${index === 0 ? 'required' : ''}><button type="button" class="remove-image-btn text-red-500 hover:text-red-700 p-2 ${images.length === 1 ? 'hidden' : ''}"><i class="fas fa-trash"></i></button></div>`).join('');
+        const categoryOptions = allCategories.map(cat => `<option value="${cat.id}" ${product && product.categoryId === cat.id ? 'selected' : ''}>${cat.name}</option>`).join('');
+        form.innerHTML = `<h3 class="text-xl font-semibold text-center">${product ? "Modifier l'article" : "Ajouter un article"}</h3><input type="hidden" id="product-id" value="${product ? product.id : ''}"><div><label for="product-name" class="block text-sm font-medium text-gray-700">Nom</label><input type="text" id="product-name" class="mt-1 block w-full" value="${product ? product.name : ''}" required></div><div class="grid grid-cols-2 gap-4"><div><label for="product-price" class="block text-sm font-medium text-gray-700">Prix de vente (FCFA)</label><input type="number" id="product-price" class="mt-1 block w-full" value="${product ? product.price : ''}" required></div><div><label for="product-slashed-price" class="block text-sm font-medium text-gray-700">Prix barré (Optionnel)</label><input type="number" id="product-slashed-price" class="mt-1 block w-full" value="${product && product.slashed_price ? product.slashed_price : ''}"></div></div><div><label for="product-category" class="block text-sm font-medium text-gray-700">Catégorie</label><select id="product-category" class="mt-1 block w-full">${categoryOptions}</select></div><div><label class="block text-sm font-medium text-gray-700">Images (URLs)</label><div id="image-inputs-container" class="space-y-2">${imagesHTML}</div><button type="button" id="add-image-btn" class="mt-2 text-sm text-blue-600 hover:underline">+ Ajouter une image</button></div><div><label for="product-description" class="block text-sm font-medium text-gray-700">Description</label><textarea id="product-description" rows="4" class="mt-1 block w-full" required>${product ? product.description : ''}</textarea></div><div class="flex justify-end space-x-4"><button type="button" id="cancel-form-btn" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600">Annuler</button><button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">Enregistrer</button></div>`;
+        form.classList.remove('hidden');
+        form.querySelector('#cancel-form-btn').addEventListener('click', () => form.classList.add('hidden'));
+        const imageContainer = form.querySelector('#image-inputs-container');
+        form.querySelector('#add-image-btn').addEventListener('click', () => {
+            const newInputGroup = document.createElement('div');
+            newInputGroup.className = 'flex items-center space-x-2 image-input-group';
+            newInputGroup.innerHTML = `<input type="url" class="mt-1 block w-full" placeholder="https://example.com/image.jpg"><button type="button" class="remove-image-btn text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash"></i></button>`;
+            imageContainer.appendChild(newInputGroup);
+            updateRemoveButtonsVisibility();
+        });
+        imageContainer.addEventListener('click', e => { if (e.target.closest('.remove-image-btn')) { e.target.closest('.image-input-group').remove(); updateRemoveButtonsVisibility(); } });
+        const updateRemoveButtonsVisibility = () => { const allGroups = imageContainer.querySelectorAll('.image-input-group'); allGroups.forEach(group => group.querySelector('.remove-image-btn').classList.toggle('hidden', allGroups.length === 1)); };
+    }
+    async function handleFormSubmit(e) {
+        const id = e.target.querySelector('#product-id').value;
+        const price = parseInt(e.target.querySelector('#product-price').value);
+        const slashed_price = parseInt(e.target.querySelector('#product-slashed-price').value) || 0;
+        const imageInputs = e.target.querySelectorAll('#image-inputs-container input[type="url"]');
+        const images = Array.from(imageInputs).map(input => input.value.trim()).filter(url => url);
+        if(images.length === 0) { showToast("Veuillez ajouter au moins une image.", "error"); return; }
+        const productData = { name: e.target.querySelector('#product-name').value, price, slashed_price: slashed_price > price ? slashed_price : null, categoryId: document.getElementById('product-category').value, images, image: images[0], description: e.target.querySelector('#product-description').value };
+        try {
+            if (id) { await updateDoc(doc(db, 'products', id), productData); showToast('Article mis à jour !'); } 
+            else { await addDoc(productsCollection, productData); showToast('Article ajouté avec succès !'); }
+            e.target.classList.add('hidden');
+        } catch (error) { showToast("Erreur: " + error.message, 'error'); }
+    }
+    async function handleAdminListClick(e) {
+        const button = e.target.closest('button');
+        if (!button) return;
+        const productElement = button.closest('[data-id]');
+        const productId = productElement.dataset.id;
+        if (button.classList.contains('edit-btn')) {
+            const docSnap = await getDoc(doc(db, 'products', productId));
+            if (docSnap.exists()) showProductForm({ id: productId, ...docSnap.data() });
+            else showToast('Article introuvable.', 'error');
+        }
+        if (button.classList.contains('delete-btn')) {
+            itemToDelete = { id: productId, type: 'product' };
+            DOM.deleteConfirmTitle.textContent = 'Supprimer l\'article';
+            DOM.deleteConfirmText.textContent = 'Êtes-vous sûr de vouloir supprimer cet article ?';
+            DOM.deleteConfirmModal.classList.remove('hidden');
+        }
+    }
+    
+    function renderCategoryFilters(categories) {
+        let html = `<button class="category-filter-btn active px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 rounded-full hover:bg-orange-500 hover:text-white" data-id="all">Toutes</button>`;
+        html += categories.map(cat => `<button class="category-filter-btn px-4 py-2 text-sm font-semibold bg-gray-200 text-gray-800 rounded-full hover:bg-orange-500 hover:text-white" data-id="${cat.id}">${cat.name}</button>`).join('');
+        DOM.categoryFilters.innerHTML = html;
+
+        DOM.categoryFilters.addEventListener('click', e => {
+            if (e.target.tagName === 'BUTTON') {
+                const categoryId = e.target.dataset.id;
+                DOM.categoryFilters.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                renderPublicProducts(allProducts, categoryId === 'all' ? null : categoryId);
+            }
+        });
+    }
+
+    function renderAdminCategories(categories) {
+        const container = document.getElementById('admin-tab-categories');
+        if (!container) return;
+        let html = `
+            <form id="category-form" class="space-y-4 bg-gray-50 p-6 rounded-lg mb-6">
+                <h3 class="text-xl font-semibold text-center">Créer une catégorie</h3>
+                <div class="flex items-end space-x-2">
+                    <div class="flex-grow"><label for="category-name-input" class="block text-sm font-medium text-gray-700">Nom de la catégorie</label><input type="text" id="category-name-input" class="mt-1 block w-full"></div>
+                    <button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600">Créer</button>
+                </div>
+            </form>
+            <h3 class="text-xl font-semibold mt-8 mb-4">Catégories existantes</h3>
+        `;
+        if (categories.length === 0) {
+            html += '<p class="text-center text-gray-500">Aucune catégorie créée.</p>';
+        } else {
+            html += `<div class="space-y-3">` + categories.map(cat => `
+                <div class="bg-gray-100 p-3 rounded-lg flex items-center justify-between">
+                    <span class="font-semibold">${cat.name}</span>
+                    <button data-id="${cat.id}" class="delete-category-btn text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `).join('') + `</div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    async function handleCategoryFormSubmit(e) {
+        e.preventDefault();
+        const input = document.getElementById('category-name-input');
+        const name = input.value.trim();
+        if (!name) {
+            showToast('Le nom de la catégorie ne peut pas être vide.', 'error');
+            return;
+        }
+        try {
+            await addDoc(categoriesCollection, { name });
+            showToast('Catégorie créée !');
+            input.value = '';
+        } catch (error) {
+            showToast('Erreur lors de la création.', 'error');
+        }
+    }
+
+
+    DOM.confirmDeleteBtn.addEventListener('click', async () => {
+        if (!itemToDelete.id || !itemToDelete.type) return;
+        try {
+            if (itemToDelete.type === 'product') {
+                await deleteDoc(doc(db, 'products', itemToDelete.id));
+                showToast('Article supprimé.');
+            } else if (itemToDelete.type === 'order') {
+                await deleteDoc(doc(db, 'orders', itemToDelete.id));
+                showToast('Commande supprimée.');
+            } else if (itemToDelete.type === 'coupon') {
+                await deleteDoc(doc(db, 'coupons', itemToDelete.id));
+                showToast('Coupon supprimé.');
+            } else if (itemToDelete.type === 'category') {
+                await deleteDoc(doc(db, 'categories', itemToDelete.id));
+                showToast('Catégorie supprimée.');
+            }
+        } catch (error) {
+            showToast("Erreur de suppression.", 'error');
+        } finally {
+            itemToDelete = { id: null, type: null };
+            DOM.deleteConfirmModal.classList.add('hidden');
+        }
+    });
+
+    let logoClicks = 0;
+    DOM.logoContainer.addEventListener('click', () => {
+        logoClicks++;
+        if (logoClicks === 5) {
+            DOM.adminBtn.classList.remove('hidden-truly');
+            showToast('Accès administrateur révélé.');
+        }
+        setTimeout(() => { logoClicks = 0; }, 1500);
+    });
+        
+    DOM.adminBtn.addEventListener('click', () => {
+        renderAdminModalContent(!!currentUser);
+        DOM.adminModal.classList.remove('hidden');
+    });
+
+    DOM.cancelDeleteBtn.addEventListener('click', () => {
+        DOM.deleteConfirmModal.classList.add('hidden');
+    });
+        
+    function initialize() {
+        DOM.copyrightYear.textContent = new Date().getFullYear();
+        renderSkeletons();
+        onSnapshot(query(productsCollection, orderBy('name')), (snapshot) => {
+            allProducts = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            renderPublicProducts(allProducts);
+        });
+        onSnapshot(settingsDoc, (doc) => {
+            if (doc.exists()) {
+                const data = doc.data();
+                if (data.bannerImageUrl) {
+                    DOM.heroSection.innerHTML = `<a href="${data.bannerLinkUrl || '#'}" target="_blank"><img src="${data.bannerImageUrl}" class="w-full h-auto rounded-lg shadow-lg"></a>`;
+                }
+            }
+        });
+    }
+        
+    initialize();
+
+</script>
 </body>
 </html>
 
